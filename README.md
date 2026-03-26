@@ -193,6 +193,21 @@ src/DotNetRAG.Api/
 └── wwwroot/            Built-in testing console (single-page HTML)
 ```
 
+## Using Your Own Documents
+
+To use your own corpus instead of the demo, place `.md` or `.txt` files in the `corpus/` directory (subdirectories are supported). The pipeline will:
+
+1. Recursively scan for files matching the configured extensions (`.md`, `.txt` by default)
+2. Split each file into overlapping chunks at paragraph boundaries (`\n\n`)
+3. Embed and store the chunks for retrieval
+
+For best results:
+- Use clear paragraph breaks between topics
+- Include descriptive headings (they become part of the chunk text)
+- Keep files UTF-8 encoded
+
+The corpus is auto-ingested on startup. To re-ingest after adding files, use the **Re-ingest Corpus** button in the UI or `POST /api/ingest`.
+
 ## Configuration
 
 All settings are in `appsettings.json` (non-secret values only):
