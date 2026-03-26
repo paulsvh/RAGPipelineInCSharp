@@ -5,10 +5,12 @@ using DotNetRAG.Api.Interfaces;
 
 namespace DotNetRAG.Api.Services;
 
-public sealed class InMemoryVectorStore : IVectorStore
+public sealed class InMemoryVectorStore : IVectorStore, IDisposable
 {
     private readonly ConcurrentDictionary<string, EmbeddedChunk> _store = new();
     private readonly SemaphoreSlim _upsertLock = new(1, 1);
+
+    public void Dispose() => _upsertLock.Dispose();
 
     public async Task UpsertAsync(
         IReadOnlyList<EmbeddedChunk> chunks,
