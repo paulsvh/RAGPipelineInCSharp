@@ -197,8 +197,8 @@ All settings are in `appsettings.json` (non-secret values only):
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `Rag:ChunkSize` | 512 | Maximum characters per chunk |
-| `Rag:ChunkOverlap` | 128 | Overlap characters between adjacent chunks |
+| `Rag:ChunkSize` | 1500 | Maximum characters per chunk |
+| `Rag:ChunkOverlap` | 300 | Overlap characters between adjacent chunks |
 | `Rag:DefaultTopK` | 5 | Default number of chunks to retrieve |
 | `Rag:MinSimilarityScore` | 0.3 | Minimum cosine similarity to include a chunk |
 | `Rag:FileExtensions` | `[".md", ".txt"]` | File types to ingest |

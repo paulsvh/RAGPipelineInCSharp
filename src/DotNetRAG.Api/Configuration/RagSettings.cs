@@ -10,10 +10,10 @@ public sealed class RagSettings
     public string CorpusDirectory { get; set; } = "corpus";
 
     [Range(1, 100_000)]
-    public int ChunkSize { get; set; } = 512;
+    public int ChunkSize { get; set; } = 1500;
 
     [Range(0, 99_999)]
-    public int ChunkOverlap { get; set; } = 128;
+    public int ChunkOverlap { get; set; } = 300;
 
     [Range(1, 100)]
     public int DefaultTopK { get; set; } = 5;
