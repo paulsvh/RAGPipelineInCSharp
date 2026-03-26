@@ -35,18 +35,13 @@ public static class IngestionEndpoints
         IOptions<RagSettings> settings,
         CancellationToken cancellationToken)
     {
-        var directory = request?.DirectoryPath ?? settings.Value.CorpusDirectory;
-
-        // Resolve relative paths against the current directory
-        if (!Path.IsPathRooted(directory))
-            directory = Path.GetFullPath(directory);
+        var directory = Path.GetFullPath(request?.DirectoryPath ?? settings.Value.CorpusDirectory);
 
         // Prevent path traversal — restrict to the configured corpus root
         var allowedRoot = Path.GetFullPath(settings.Value.CorpusDirectory)
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-            + Path.DirectorySeparatorChar;
-        if (!directory.StartsWith(allowedRoot, StringComparison.OrdinalIgnoreCase)
-            && !Path.GetFullPath(directory).Equals(allowedRoot.TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase))
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (!directory.StartsWith(allowedRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+            && !directory.Equals(allowedRoot, StringComparison.OrdinalIgnoreCase))
         {
             return Results.Problem(
                 detail: "Directory path must be within the configured corpus directory.",
