@@ -1,6 +1,6 @@
 [![.NET 10](https://img.shields.io/badge/.NET-10.0-512bd4)](https://dotnet.microsoft.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-37%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-47%20passing-brightgreen)]()
 
 # DotNetRAG
 
@@ -34,12 +34,12 @@ graph LR
 |-----------|-----------|---------------|-------------|
 | Document Loader | `IDocumentLoader` | `PlainTextDocumentLoader` | Recursively loads `.md` and `.txt` files from a directory |
 | Chunker | `IChunker` | `OverlappingChunker` | Paragraph-aware splitting with configurable overlap |
-| Embedder | `IEmbedder` | `OpenAiEmbedder` | Batched embedding via OpenAI's API |
+| Embedder | `IEmbedder` | `LocalHashingEmbedder` | Zero-dependency local embedder using feature hashing |
 | Vector Store | `IVectorStore` | `InMemoryVectorStore` | SIMD-accelerated cosine similarity search |
 | Retriever | `IRetriever` | `CosineSimilarityRetriever` | Composes embedder + vector store, filters by similarity threshold |
 | LLM Client | `ILanguageModelClient` | `AnthropicLanguageModelClient` | Generates cited answers via Claude |
 
-Every component is behind an interface, making it straightforward to swap implementations (e.g., replace `InMemoryVectorStore` with a Pinecone or Weaviate adapter).
+Every component is behind an interface, making it straightforward to swap implementations (e.g., replace `InMemoryVectorStore` with a Pinecone or Weaviate adapter, or swap `LocalHashingEmbedder` for a neural embedding service).
 
 ## How RAG Works
 
@@ -55,15 +55,14 @@ Every component is behind an interface, making it straightforward to swap implem
 | `DELETE` | `/api/ingest` | Clear the vector store |
 | `POST` | `/api/query` | Ask a question against the corpus |
 | `GET` | `/api/diagnostics/health` | Health check with chunk count |
-| `GET` | `/api/diagnostics/config` | View active configuration |
+| `GET` | `/api/diagnostics/config` | View active configuration (Development only) |
 
 ## Getting Started
 
 ### Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- An [OpenAI API key](https://platform.openai.com/api-keys) (for embeddings)
-- An [Anthropic API key](https://console.anthropic.com/) (for generation)
+- An [Anthropic API key](https://console.anthropic.com/)
 
 ### Setup
 
@@ -72,10 +71,9 @@ Every component is behind an interface, making it straightforward to swap implem
 git clone https://github.com/paulsvh/RAGPipelineInCSharp.git
 cd RAGPipelineInCSharp
 
-# Set up API keys using .NET User Secrets (never stored in source control)
+# Set up your API key using .NET User Secrets (never stored in source control)
 cd src/DotNetRAG.Api
 dotnet user-secrets init
-dotnet user-secrets set "OpenAi:ApiKey" "sk-your-openai-key"
 dotnet user-secrets set "Anthropic:ApiKey" "sk-ant-your-anthropic-key"
 cd ../..
 
@@ -149,17 +147,21 @@ curl http://localhost:5292/api/diagnostics/health
 
 ## Design Decisions
 
-### Why raw HttpClient instead of AI SDKs?
+### Why raw HttpClient instead of an AI SDK?
 
-No `Azure.AI.OpenAI` or `Anthropic.SDK` — we call the OpenAI and Anthropic HTTP APIs directly with `HttpClient` + `IHttpClientFactory`. This keeps the dependency surface minimal, gives full control over serialization and retry logic, and demonstrates understanding of the underlying APIs. Resilience (retries, circuit breakers) is handled via `Microsoft.Extensions.Http.Resilience` (Polly). Per-request `HttpRequestMessage` headers ensure thread-safe concurrent access.
+No `Anthropic.SDK` — we call the Anthropic HTTP API directly with `HttpClient` + `IHttpClientFactory`. This keeps the dependency surface minimal, gives full control over serialization and retry logic, and demonstrates understanding of the underlying API. Resilience (retries, circuit breakers) is handled via `Microsoft.Extensions.Http.Resilience` (Polly). Per-request `HttpRequestMessage` headers ensure thread-safe concurrent access.
+
+### Why a local embedder?
+
+The `LocalHashingEmbedder` uses feature hashing (the "hashing trick") to produce fixed-dimension vectors from word unigrams and bigrams — no external API key needed. This provides keyword-level similarity that works well for demos. The `IEmbedder` interface makes it trivial to swap in a neural embedding service for production use.
 
 ### Why source-generated JSON serialization?
 
-Both API clients use `JsonSerializerContext` for source-generated JSON serialization rather than reflection-based `System.Text.Json`. This eliminates runtime reflection costs, reduces startup time, and makes the application compatible with Native AOT compilation — an increasingly important consideration for cloud-native .NET workloads.
+The Anthropic API client uses `JsonSerializerContext` for source-generated JSON serialization rather than reflection-based `System.Text.Json`. This eliminates runtime reflection costs, reduces startup time, and makes the application compatible with Native AOT compilation.
 
 ### Why in-memory vector store with SIMD?
 
-For a demo corpus of ~50 chunks, a brute-force cosine similarity search over in-memory vectors is more than fast enough. The `InMemoryVectorStore` uses `System.Numerics.Vector<float>` for SIMD-accelerated dot product computation — hardware-accelerated math with zero external dependencies.
+For a demo corpus of ~30 chunks, a brute-force cosine similarity search over in-memory vectors is more than fast enough. The `InMemoryVectorStore` uses `System.Numerics.Vector<float>` for SIMD-accelerated dot product computation — hardware-accelerated math with zero external dependencies.
 
 The `IVectorStore` interface makes it trivial to swap in a production vector database:
 
@@ -202,12 +204,10 @@ All settings are in `appsettings.json` (non-secret values only):
 | `Rag:DefaultTopK` | 5 | Default number of chunks to retrieve |
 | `Rag:MinSimilarityScore` | 0.3 | Minimum cosine similarity to include a chunk |
 | `Rag:FileExtensions` | `[".md", ".txt"]` | File types to ingest |
-| `OpenAi:EmbeddingModel` | `text-embedding-3-small` | OpenAI embedding model |
-| `OpenAi:EmbeddingDimensions` | 1536 | Vector dimensionality |
 | `Anthropic:Model` | `claude-sonnet-4-20250514` | Claude model for generation |
 | `Anthropic:MaxTokens` | 2048 | Max tokens for generation |
 
-API keys are stored via [.NET User Secrets](https://learn.microsoft.com/en-us/aspnet/core/security/app-secrets) — never committed to source control. Missing keys cause a clear startup failure thanks to `ValidateOnStart`.
+The API key is stored via [.NET User Secrets](https://learn.microsoft.com/en-us/aspnet/core/security/app-secrets) — never committed to source control. A missing key causes a clear startup failure thanks to `ValidateOnStart`.
 
 ## Running Tests
 
@@ -215,10 +215,11 @@ API keys are stored via [.NET User Secrets](https://learn.microsoft.com/en-us/as
 dotnet test
 ```
 
-37 tests covering: chunker logic, SIMD cosine similarity, vector store operations, retriever filtering, pipeline orchestration, and citation extraction.
+47 tests covering: chunker logic, SIMD cosine similarity, vector store operations, retriever filtering, pipeline orchestration, citation extraction, exception handling, and API endpoint integration.
 
 ## Future Improvements
 
+- **Neural embeddings** via the `IEmbedder` interface (e.g., Voyage AI, OpenAI, or a local ONNX model)
 - **Token-based chunking** using `Microsoft.ML.Tokenizers` for more accurate chunk sizing
 - **Persistent vector store** adapter for Pinecone, Weaviate, or Qdrant
 - **Cross-encoder re-ranking** for more precise relevance ordering after initial retrieval
