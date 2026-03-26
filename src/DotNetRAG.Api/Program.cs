@@ -21,7 +21,7 @@ if (app.Environment.IsDevelopment())
 
 app.MapIngestionEndpoints();
 app.MapQueryEndpoints();
-app.MapDiagnosticEndpoints();
+app.MapDiagnosticEndpoints(app.Environment);
 
 app.Run();
 

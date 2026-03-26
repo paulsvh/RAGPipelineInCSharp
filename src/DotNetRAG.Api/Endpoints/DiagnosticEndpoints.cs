@@ -7,7 +7,9 @@ namespace DotNetRAG.Api.Endpoints;
 
 public static class DiagnosticEndpoints
 {
-    public static RouteGroupBuilder MapDiagnosticEndpoints(this IEndpointRouteBuilder app)
+    public static RouteGroupBuilder MapDiagnosticEndpoints(
+        this IEndpointRouteBuilder app,
+        IWebHostEnvironment env)
     {
         var group = app.MapGroup("/api/diagnostics")
             .WithTags("Diagnostics");
@@ -17,10 +19,14 @@ public static class DiagnosticEndpoints
             .WithSummary("Health check with vector store statistics")
             .Produces<HealthResponse>(StatusCodes.Status200OK);
 
-        group.MapGet("/config", HandleConfig)
-            .WithName("GetConfig")
-            .WithSummary("Get active non-secret configuration")
-            .Produces<ConfigResponse>(StatusCodes.Status200OK);
+        // Config endpoint exposes operational details — restrict to Development
+        if (env.IsDevelopment())
+        {
+            group.MapGet("/config", HandleConfig)
+                .WithName("GetConfig")
+                .WithSummary("Get active non-secret configuration (Development only)")
+                .Produces<ConfigResponse>(StatusCodes.Status200OK);
+        }
 
         return group;
     }
