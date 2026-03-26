@@ -22,7 +22,7 @@ public static class IngestionEndpoints
 
         group.MapPost("/", HandleIngestAsync)
             .WithName("IngestDocuments")
-            .WithSummary("Ingest documents from a directory into the vector store")
+            .WithSummary("Load a demo corpus into the vector store by ID")
             .Produces<IngestResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound);
@@ -71,20 +71,25 @@ public static class IngestionEndpoints
         IWebHostEnvironment env,
         CancellationToken cancellationToken)
     {
-        var rawPath = request?.DirectoryPath ?? settings.Value.CorpusDirectory;
-        var directory = Path.IsPathRooted(rawPath)
-            ? rawPath
-            : Path.GetFullPath(Path.Combine(env.ContentRootPath, rawPath));
-
-        // Prevent path traversal — restrict to the configured corpus root
-        var allowedRoot = ResolveCorpusRoot(settings.Value, env);
-        if (!directory.StartsWith(allowedRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
-            && !directory.Equals(allowedRoot, StringComparison.OrdinalIgnoreCase))
-        {
+        var corpusId = request?.CorpusId;
+        if (string.IsNullOrWhiteSpace(corpusId))
             return Results.Problem(
-                detail: "Directory path must be within the configured corpus directory.",
-                statusCode: StatusCodes.Status403Forbidden);
-        }
+                detail: "A corpus ID is required. Use GET /api/ingest/corpora to list available corpora.",
+                statusCode: StatusCodes.Status400BadRequest);
+
+        // Only allow simple directory names — no path separators
+        if (corpusId.Contains('/') || corpusId.Contains('\\') || corpusId.Contains(".."))
+            return Results.Problem(
+                detail: "Invalid corpus ID.",
+                statusCode: StatusCodes.Status400BadRequest);
+
+        var corpusRoot = ResolveCorpusRoot(settings.Value, env);
+        var directory = Path.Combine(corpusRoot, corpusId);
+
+        if (!Directory.Exists(directory))
+            return Results.Problem(
+                detail: $"Corpus '{corpusId}' not found.",
+                statusCode: StatusCodes.Status404NotFound);
 
         // Clear existing data before loading new corpus
         await vectorStore.ClearAsync(cancellationToken);

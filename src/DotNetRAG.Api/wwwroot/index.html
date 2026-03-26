@@ -428,12 +428,15 @@ async function selectCorpus(id, card) {
   errEl.innerHTML = '';
   stats.classList.remove('visible');
   $('responseArea').classList.remove('visible');
+  $('queryInput').value = '';
+  $('queryError').innerHTML = '';
+  $('emptyState').style.display = '';
 
   try {
     const res = await fetch('/api/ingest', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ directoryPath: '../../corpus/' + id })
+      body: JSON.stringify({ corpusId: id })
     });
 
     if (!res.ok) {
