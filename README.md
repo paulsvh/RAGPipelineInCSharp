@@ -1,6 +1,6 @@
 [![.NET 10](https://img.shields.io/badge/.NET-10.0-512bd4)](https://dotnet.microsoft.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-71%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-83%20passing-brightgreen)]()
 
 # DotNetRAG
 
@@ -14,7 +14,7 @@ Most RAG examples online are Python-based. This project demonstrates that .NET i
 graph LR
     subgraph Ingestion Pipeline
         A[Document Loader] --> B[Chunker]
-        B --> C[Embedder]
+        B -->|context injection| C[Embedder]
         C --> D[Vector Store]
     end
 
@@ -33,8 +33,8 @@ graph LR
 | Component | Interface | Implementation | Description |
 |-----------|-----------|---------------|-------------|
 | Document Loader | `IDocumentLoader` | `PlainTextDocumentLoader` | Recursively loads `.md` and `.txt` files from a directory |
-| Chunker | `IChunker` | `OverlappingChunker` | Paragraph-aware splitting with configurable overlap |
-| Embedder | `IEmbedder` | `LocalHashingEmbedder` | Zero-dependency local embedder using feature hashing |
+| Chunker | `IChunker` | `OverlappingChunker` | Paragraph-aware splitting with document title and section heading context injection |
+| Embedder | `IEmbedder` | `LocalHashingEmbedder` | TF-IDF-weighted feature hashing with stopwords, n-grams, and term importance boost |
 | Vector Store | `IVectorStore` | `InMemoryVectorStore` | SIMD-accelerated cosine similarity search |
 | Retriever | `IRetriever` | `CosineSimilarityRetriever` | Composes embedder + vector store, filters by similarity threshold |
 | LLM Client | `ILanguageModelClient` | `AnthropicLanguageModelClient` | Generates cited answers via Claude |
@@ -43,7 +43,7 @@ Every component is behind an interface, making it straightforward to swap implem
 
 ## How RAG Works
 
-1. **Ingestion**: Documents are loaded, split into overlapping chunks, embedded into vectors, and stored
+1. **Ingestion**: Documents are loaded, split into overlapping chunks (with document/section context prepended), embedded into vectors, and stored
 2. **Query**: The user's question is embedded, the most similar chunks are retrieved via cosine similarity and filtered by a minimum relevance threshold
 3. **Generation**: Retrieved chunks are injected as context into a prompt sent to Claude, which generates a grounded answer with inline citations
 
@@ -51,9 +51,10 @@ Every component is behind an interface, making it straightforward to swap implem
 
 | Method | Route | Description |
 |--------|-------|-------------|
-| `POST` | `/api/ingest` | Ingest documents from a directory |
+| `GET` | `/api/ingest/corpora` | List available demo corpora |
+| `POST` | `/api/ingest` | Ingest a selected corpus into the vector store |
 | `DELETE` | `/api/ingest` | Clear the vector store |
-| `POST` | `/api/query` | Ask a question against the corpus |
+| `POST` | `/api/query` | Ask a question against the loaded corpus |
 | `GET` | `/api/diagnostics/health` | Health check with chunk count |
 | `GET` | `/api/diagnostics/config` | View active configuration (Development only) |
 
@@ -86,11 +87,13 @@ The API will start at `http://localhost:5292`.
 
 ### Testing Console
 
-Open `http://localhost:5292` in a browser to use the built-in testing console — no curl required. The console provides:
+Open `http://localhost:5292` in a browser to use the built-in testing console. The console provides:
 
+- **Corpus selector** — choose from 3 demo corpora (Tech Company, Cooking Recipes, Space Exploration), each with a description and document count
+- **Suggested queries** — pre-built questions tailored to each corpus, click to run instantly
+- **Interactive query UI** — ask your own questions with an adjustable top-k slider
+- **Cited answers** — responses with numbered inline citations, collapsible source chunk cards with similarity scores
 - **Health indicator** — live connection status and chunk count
-- **One-click ingestion** — ingest the demo corpus with a single button press
-- **Interactive query UI** — ask questions with an adjustable top-k slider, see answers with highlighted citations and collapsible source chunk cards with similarity scores
 
 Swagger UI is also available at `/swagger` for raw API exploration.
 
@@ -98,17 +101,21 @@ Swagger UI is also available at `/swagger` for raw API exploration.
 
 Alternatively, use curl to interact with the API directly:
 
-**1. Ingest the demo corpus:**
+**1. List available corpora:**
+
+```bash
+curl http://localhost:5292/api/ingest/corpora
+```
+
+**2. Ingest a corpus by ID:**
 
 ```bash
 curl -X POST http://localhost:5292/api/ingest \
   -H "Content-Type: application/json" \
-  -d '{}'
+  -d '{"corpusId": "tech-company"}'
 ```
 
-This loads the included demo corpus (9 markdown files about a fictional company called Vortex Technologies).
-
-**2. Ask a question:**
+**3. Ask a question:**
 
 ```bash
 curl -X POST http://localhost:5292/api/query \
@@ -116,7 +123,7 @@ curl -X POST http://localhost:5292/api/query \
   -d '{"question": "What monitoring is available for Aurora Analytics?"}'
 ```
 
-**3. Check the health:**
+**4. Check the health:**
 
 ```bash
 curl http://localhost:5292/api/diagnostics/health
@@ -145,6 +152,18 @@ curl http://localhost:5292/api/diagnostics/health
 }
 ```
 
+## Demo Corpora
+
+The project includes 3 demo corpora designed to showcase different RAG use cases:
+
+| Corpus | Documents | Description |
+|--------|-----------|-------------|
+| **Tech Company** | 9 | Internal docs for fictional Vortex Technologies: product pages, corporate policies, and engineering standards. Heavy cross-referencing between documents. |
+| **Cooking Recipes** | 6 | Recipes, techniques, and kitchen guides: pasta dishes, bread baking, knife skills, spices, grilling, and desserts. |
+| **Space Exploration** | 6 | Articles about the solar system, Mars missions, JWST, Moon missions, exoplanets, and rocket propulsion. |
+
+Each corpus includes a `_meta.json` file with its name, description, and document count.
+
 ## Design Decisions
 
 ### Why raw HttpClient instead of an AI SDK?
@@ -153,7 +172,7 @@ No `Anthropic.SDK` — we call the Anthropic HTTP API directly with `HttpClient`
 
 ### Why a local embedder?
 
-The `LocalHashingEmbedder` uses feature hashing (the "hashing trick") to produce fixed-dimension vectors from word unigrams and bigrams — no external API key needed. This provides keyword-level similarity that works well for demos. The `IEmbedder` interface makes it trivial to swap in a neural embedding service for production use.
+The `LocalHashingEmbedder` uses TF-IDF-weighted feature hashing with stopword filtering, term importance boost (longer words weighted higher), and unigram/bigram/trigram n-grams — all with zero external dependencies. Combined with the chunker's document title and section heading context injection, this produces effective keyword-level retrieval for the demo corpora. The `IEmbedder` interface makes it trivial to swap in a neural embedding service for production use.
 
 ### Why source-generated JSON serialization?
 
@@ -161,7 +180,7 @@ The Anthropic API client uses `JsonSerializerContext` for source-generated JSON 
 
 ### Why in-memory vector store with SIMD?
 
-For a demo corpus of ~30 chunks, a brute-force cosine similarity search over in-memory vectors is more than fast enough. The `InMemoryVectorStore` uses `System.Numerics.Vector<float>` for SIMD-accelerated dot product computation — hardware-accelerated math with zero external dependencies.
+For demo corpora of 30-70 chunks, a brute-force cosine similarity search over in-memory vectors is more than fast enough. The `InMemoryVectorStore` uses `System.Numerics.Vector<float>` for SIMD-accelerated dot product computation — hardware-accelerated math with zero external dependencies.
 
 The `IVectorStore` interface makes it trivial to swap in a production vector database:
 
@@ -170,9 +189,9 @@ The `IVectorStore` interface makes it trivial to swap in a production vector dat
 services.AddSingleton<IVectorStore, PineconeVectorStore>();
 ```
 
-### Why character-based chunking?
+### Why character-based chunking with context injection?
 
-Token-based chunking would require a tokenizer dependency. Character-based chunking with paragraph-aware splitting is simpler, has no dependencies, and produces good results for English text. The `IChunker` interface allows swapping in token-based chunking later.
+Token-based chunking would require a tokenizer dependency. Character-based chunking with paragraph-aware splitting is simpler, has no dependencies, and produces good results for English text. Each chunk is prepended with the document title and nearest section heading, which dramatically improves retrieval quality for keyword-based embedders. The `IChunker` interface allows swapping in token-based chunking later.
 
 ### Why a single project?
 
@@ -191,22 +210,12 @@ src/DotNetRAG.Api/
 ├── Middleware/          Global exception handling (RFC 9457 ProblemDetails)
 ├── Extensions/         DI registration with options validation
 └── wwwroot/            Built-in testing console (single-page HTML)
+
+corpus/
+├── tech-company/       9 docs: products, policies, engineering standards
+├── cooking-recipes/    6 docs: recipes, techniques, guides
+└── space-exploration/  6 docs: solar system, missions, propulsion
 ```
-
-## Using Your Own Documents
-
-To use your own corpus instead of the demo, place `.md` or `.txt` files in the `corpus/` directory (subdirectories are supported). The pipeline will:
-
-1. Recursively scan for files matching the configured extensions (`.md`, `.txt` by default)
-2. Split each file into overlapping chunks at paragraph boundaries (`\n\n`)
-3. Embed and store the chunks for retrieval
-
-For best results:
-- Use clear paragraph breaks between topics
-- Include descriptive headings (they become part of the chunk text)
-- Keep files UTF-8 encoded
-
-The corpus is auto-ingested on startup. To re-ingest after adding files, use the **Re-ingest Corpus** button in the UI or `POST /api/ingest`.
 
 ## Configuration
 
@@ -230,16 +239,15 @@ The API key is stored via [.NET User Secrets](https://learn.microsoft.com/en-us/
 dotnet test
 ```
 
-71 tests covering: chunker logic, SIMD cosine similarity, vector store operations, retriever filtering, pipeline orchestration, citation extraction, exception handling, local embedder quality, document loader I/O, DI registration validation, and API endpoint integration.
+83 tests covering: chunker logic, SIMD cosine similarity, vector store operations, retriever filtering, pipeline orchestration, citation extraction, exception handling, local embedder quality, document loader I/O, DI registration validation, API endpoint integration, and end-to-end suggested query retrieval across all 3 corpora.
 
 ## Future Improvements
 
-- **Neural embeddings** via the `IEmbedder` interface (e.g., Voyage AI, OpenAI, or a local ONNX model)
+- **Neural embeddings** via the `IEmbedder` interface (e.g., Voyage AI or a local ONNX model)
 - **Token-based chunking** using `Microsoft.ML.Tokenizers` for more accurate chunk sizing
 - **Persistent vector store** adapter for Pinecone, Weaviate, or Qdrant
 - **Cross-encoder re-ranking** for more precise relevance ordering after initial retrieval
 - **Streaming responses** via Server-Sent Events for real-time generation
-- **Document metadata filtering** (e.g., only search within "policies" documents)
 - **Hybrid search** combining dense vector search with BM25 keyword matching
 
 ## License
