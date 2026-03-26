@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self'">
 <title>DotNetRAG — Pipeline Console</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -598,6 +599,9 @@ footer a:hover { color: var(--accent); }
           <span class="spinner"></span>
           <span class="btn-text">Ingest Corpus</span>
         </button>
+        <button class="btn" id="clearBtn" onclick="clearStore()">
+          <span class="btn-text">Clear Store</span>
+        </button>
         <div class="ingest-stats" id="ingestStats">
           <div class="stat">
             <span class="stat-value" id="statDocs">—</span>
@@ -727,6 +731,19 @@ async function ingestDocuments() {
   }
 }
 
+async function clearStore() {
+  const errEl = $('ingestError');
+  errEl.innerHTML = '';
+  try {
+    const res = await fetch('/api/ingest', { method: 'DELETE' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    $('ingestStats').classList.remove('visible');
+    checkHealth();
+  } catch (e) {
+    errEl.innerHTML = `<div class="error-msg">${esc(e.message)}</div>`;
+  }
+}
+
 function parseDuration(d) {
   if (typeof d === 'string') {
     // "00:00:01.234" or "0.00:00:01.2340000"
@@ -742,10 +759,16 @@ function parseDuration(d) {
 }
 
 // ── Query ──
+let queryController = null;
+
 async function submitQuery() {
   const input = $('queryInput');
   const question = input.value.trim();
   if (!question) { input.focus(); return; }
+
+  // Abort any in-flight query
+  if (queryController) queryController.abort();
+  queryController = new AbortController();
 
   const btn = $('queryBtn');
   const errEl = $('queryError');
@@ -762,7 +785,8 @@ async function submitQuery() {
     const res = await fetch('/api/query', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question, topK })
+      body: JSON.stringify({ question, topK }),
+      signal: queryController.signal
     });
 
     if (!res.ok) {
@@ -775,18 +799,34 @@ async function submitQuery() {
     emptyState.style.display = 'none';
     responseArea.classList.add('visible');
   } catch (e) {
+    if (e.name === 'AbortError') return;
     errEl.innerHTML = `<div class="error-msg">${esc(e.message)}</div>`;
   } finally {
     btn.classList.remove('loading');
     btn.disabled = false;
+    queryController = null;
   }
 }
 
 function renderResponse(data) {
-  // Answer with highlighted citations
+  // Build a lookup from chunk ID to index + source file for readable citations
+  const chunkLookup = {};
+  if (data.sourceChunks) {
+    data.sourceChunks.forEach((chunk, i) => {
+      chunkLookup[chunk.chunkId] = { index: i + 1, file: chunk.sourceFile };
+    });
+  }
+
+  // Answer with highlighted citations — show [1] with source file on hover
   const answerHtml = esc(data.answer).replace(
     /\[cite:([a-f0-9]{12})\]/g,
-    '<span class="citation" title="Chunk $1">$1</span>'
+    (match, id) => {
+      const info = chunkLookup[id];
+      if (info) {
+        return `<span class="citation" title="${esc(info.file)}">${info.index}</span>`;
+      }
+      return `<span class="citation" title="${id}">${id.substring(0, 6)}</span>`;
+    }
   );
   $('answerBlock').innerHTML = answerHtml;
 
@@ -836,6 +876,7 @@ function esc(s) {
 
 // Init
 checkHealth();
+setInterval(checkHealth, 30000);
 </script>
 </body>
 </html>
