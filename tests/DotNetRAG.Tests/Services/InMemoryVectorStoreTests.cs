@@ -156,4 +156,47 @@ public class InMemoryVectorStoreTests
         var results = await _store.SearchAsync(queryVector, 1);
         results[0].EmbeddedChunk.Chunk.Text.Should().Be("Updated text");
     }
+
+    [Fact]
+    public void CosineSimilarity_MismatchedDimensions_ThrowsArgumentException()
+    {
+        var a = new float[] { 1f, 0f };
+        var b = new float[] { 1f, 0f, 0f };
+
+        var act = () => InMemoryVectorStore.CosineSimilarity(a.AsSpan(), b.AsSpan());
+
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void CosineSimilarity_ZeroVectors_ReturnsZero()
+    {
+        ReadOnlySpan<float> a = new float[] { 0f, 0f, 0f };
+        ReadOnlySpan<float> b = new float[] { 1f, 0f, 0f };
+
+        var result = InMemoryVectorStore.CosineSimilarity(a, b);
+
+        result.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task SearchAsync_EmptyStore_ReturnsEmptyList()
+    {
+        var emptyStore = new InMemoryVectorStore();
+        float[] queryVector = [1f, 0f, 0f];
+
+        var results = await emptyStore.SearchAsync(queryVector, 5);
+
+        results.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task SearchAsync_TopKGreaterThanCount_ReturnsAllItems()
+    {
+        await _store.UpsertAsync([CreateEmbeddedChunk("a", [1f, 0f]), CreateEmbeddedChunk("b", [0f, 1f])]);
+
+        var results = await _store.SearchAsync([1f, 0f], topK: 10);
+
+        results.Should().HaveCount(2);
+    }
 }

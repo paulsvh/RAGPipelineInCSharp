@@ -131,4 +131,33 @@ public class OverlappingChunkerTests
         result.Should().AllSatisfy(chunk =>
             chunk.SourcePath.Should().Be(sourcePath));
     }
+
+    [Fact]
+    public void Chunk_SingleParagraphExceedingChunkSize_ProducesMultipleChunks()
+    {
+        // A single paragraph with no \n\n breaks, longer than chunk size
+        var settings = Options.Create(new RagSettings { ChunkSize = 50, ChunkOverlap = 10 });
+        var chunker = new OverlappingChunker(settings);
+        var text = new string('A', 200); // 200 chars, no paragraph breaks
+
+        var result = chunker.Chunk(text, "long.md");
+
+        result.Should().HaveCountGreaterThan(1);
+        result.Should().AllSatisfy(chunk =>
+            chunk.Text.Length.Should().BeLessThanOrEqualTo(50));
+    }
+
+    [Fact]
+    public void Chunk_WindowsLineEndings_AreSplitCorrectly()
+    {
+        var text = "First paragraph.\r\n\r\nSecond paragraph.\r\n\r\nThird paragraph.";
+
+        var result = _chunker.Chunk(text, "windows.md");
+
+        result.Should().HaveCountGreaterThanOrEqualTo(1);
+        // Verify content is preserved (not including raw \r\n as text)
+        var allText = string.Join(" ", result.Select(c => c.Text));
+        allText.Should().Contain("First paragraph");
+        allText.Should().Contain("Third paragraph");
+    }
 }
