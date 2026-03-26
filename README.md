@@ -1,6 +1,6 @@
 [![.NET 10](https://img.shields.io/badge/.NET-10.0-512bd4)](https://dotnet.microsoft.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-47%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-71%20passing-brightgreen)]()
 
 # DotNetRAG
 
@@ -217,7 +217,7 @@ All settings are in `appsettings.json` (non-secret values only):
 | `Rag:ChunkSize` | 1500 | Maximum characters per chunk |
 | `Rag:ChunkOverlap` | 300 | Overlap characters between adjacent chunks |
 | `Rag:DefaultTopK` | 5 | Default number of chunks to retrieve |
-| `Rag:MinSimilarityScore` | 0.3 | Minimum cosine similarity to include a chunk |
+| `Rag:MinSimilarityScore` | 0.05 | Minimum cosine similarity to include a chunk |
 | `Rag:FileExtensions` | `[".md", ".txt"]` | File types to ingest |
 | `Anthropic:Model` | `claude-sonnet-4-20250514` | Claude model for generation |
 | `Anthropic:MaxTokens` | 2048 | Max tokens for generation |
@@ -230,7 +230,7 @@ The API key is stored via [.NET User Secrets](https://learn.microsoft.com/en-us/
 dotnet test
 ```
 
-47 tests covering: chunker logic, SIMD cosine similarity, vector store operations, retriever filtering, pipeline orchestration, citation extraction, exception handling, and API endpoint integration.
+71 tests covering: chunker logic, SIMD cosine similarity, vector store operations, retriever filtering, pipeline orchestration, citation extraction, exception handling, local embedder quality, document loader I/O, DI registration validation, and API endpoint integration.
 
 ## Future Improvements
 
