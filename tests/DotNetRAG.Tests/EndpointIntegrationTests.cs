@@ -10,7 +10,7 @@ using NSubstitute;
 
 namespace DotNetRAG.Tests;
 
-public class EndpointIntegrationTests : IClassFixture<CustomWebApplicationFactory>
+public class EndpointIntegrationTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
 {
     private readonly CustomWebApplicationFactory _factory;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -19,6 +19,14 @@ public class EndpointIntegrationTests : IClassFixture<CustomWebApplicationFactor
     {
         _factory = factory;
     }
+
+    public async Task InitializeAsync()
+    {
+        var store = _factory.Services.GetRequiredService<IVectorStore>();
+        await store.ClearAsync();
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
     public async Task GET_Health_Returns200WithChunkCount()
@@ -157,8 +165,6 @@ public class EndpointIntegrationTests : IClassFixture<CustomWebApplicationFactor
         usage.TryGetProperty("completionTokens", out _).Should().BeTrue();
         usage.TryGetProperty("chunksRetrieved", out _).Should().BeTrue();
 
-        // Cleanup: clear the store so other tests are not affected
-        await store.ClearAsync();
     }
 
     [Fact]
