@@ -19,32 +19,28 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         {
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["OpenAi:ApiKey"] = "test-key",
                 ["Anthropic:ApiKey"] = "test-key"
             });
         });
 
         builder.ConfigureServices(services =>
         {
-            // Remove real IEmbedder registration (added via AddHttpClient<IEmbedder, OpenAiEmbedder>)
-            var embedderDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IEmbedder));
-            if (embedderDescriptor is not null)
-                services.Remove(embedderDescriptor);
-
-            // Remove real ILanguageModelClient registration
-            var llmDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(ILanguageModelClient));
-            if (llmDescriptor is not null)
-                services.Remove(llmDescriptor);
-
-            // Remove real IDocumentLoader registration
-            var docLoaderDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IDocumentLoader));
-            if (docLoaderDescriptor is not null)
-                services.Remove(docLoaderDescriptor);
+            // Remove real registrations
+            RemoveService<IEmbedder>(services);
+            RemoveService<ILanguageModelClient>(services);
+            RemoveService<IDocumentLoader>(services);
 
             // Register mock instances
             services.AddSingleton(MockEmbedder);
             services.AddSingleton(MockLanguageModelClient);
             services.AddSingleton(MockDocumentLoader);
         });
+    }
+
+    private static void RemoveService<T>(IServiceCollection services)
+    {
+        var descriptor = services.FirstOrDefault(d => d.ServiceType == typeof(T));
+        if (descriptor is not null)
+            services.Remove(descriptor);
     }
 }

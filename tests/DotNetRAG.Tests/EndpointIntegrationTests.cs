@@ -53,9 +53,8 @@ public class EndpointIntegrationTests : IClassFixture<CustomWebApplicationFactor
 
         var json = await response.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
 
-        // Verify the three config sections exist
+        // Verify config sections exist
         json.TryGetProperty("rag", out var rag).Should().BeTrue();
-        json.TryGetProperty("openAi", out var openAi).Should().BeTrue();
         json.TryGetProperty("anthropic", out var anthropic).Should().BeTrue();
 
         // Verify RAG section has expected properties
