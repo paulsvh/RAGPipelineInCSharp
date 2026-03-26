@@ -181,20 +181,44 @@ public class EndpointIntegrationTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
-    public async Task POST_Ingest_PathOutsideCorpus_Returns403()
+    public async Task POST_Ingest_MissingCorpusId_Returns400()
     {
         // Arrange
         using var client = _factory.CreateClient();
-        var request = new IngestRequest(DirectoryPath: @"C:\Windows\System32");
+        var request = new IngestRequest(CorpusId: null);
 
         // Act
         var response = await client.PostAsJsonAsync("/api/ingest", request);
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
 
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
-        json.TryGetProperty("status", out var status).Should().BeTrue();
-        status.GetInt32().Should().Be(403);
+    [Fact]
+    public async Task POST_Ingest_TraversalAttempt_Returns400()
+    {
+        // Arrange
+        using var client = _factory.CreateClient();
+        var request = new IngestRequest(CorpusId: "../../etc");
+
+        // Act
+        var response = await client.PostAsJsonAsync("/api/ingest", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task POST_Ingest_NonexistentCorpus_Returns404()
+    {
+        // Arrange
+        using var client = _factory.CreateClient();
+        var request = new IngestRequest(CorpusId: "nonexistent-corpus");
+
+        // Act
+        var response = await client.PostAsJsonAsync("/api/ingest", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 }
