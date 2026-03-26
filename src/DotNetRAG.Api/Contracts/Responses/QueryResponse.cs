@@ -1,19 +1,21 @@
+using System.Text.Json.Serialization;
+
 namespace DotNetRAG.Api.Contracts.Responses;
 
 public sealed record QueryResponse(
-    string Answer,
-    IReadOnlyList<ChunkReference> SourceChunks,
-    string ModelUsed,
-    QueryUsageInfo Usage);
+    [property: JsonPropertyName("answer")] string Answer,
+    [property: JsonPropertyName("sourceChunks")] IReadOnlyList<ChunkReference> SourceChunks,
+    [property: JsonPropertyName("modelUsed")] string ModelUsed,
+    [property: JsonPropertyName("usage")] QueryUsageInfo Usage);
 
 public sealed record ChunkReference(
-    string ChunkId,
-    string SourceFile,
-    int ChunkIndex,
-    double SimilarityScore,
-    string TextPreview);
+    [property: JsonPropertyName("chunkId")] string ChunkId,
+    [property: JsonPropertyName("sourceFile")] string SourceFile,
+    [property: JsonPropertyName("chunkIndex")] int ChunkIndex,
+    [property: JsonPropertyName("similarityScore")] double SimilarityScore,
+    [property: JsonPropertyName("textPreview")] string TextPreview);
 
 public sealed record QueryUsageInfo(
-    int PromptTokens,
-    int CompletionTokens,
-    int ChunksRetrieved);
+    [property: JsonPropertyName("promptTokens")] int PromptTokens,
+    [property: JsonPropertyName("completionTokens")] int CompletionTokens,
+    [property: JsonPropertyName("chunksRetrieved")] int ChunksRetrieved);

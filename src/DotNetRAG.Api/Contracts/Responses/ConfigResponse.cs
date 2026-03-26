@@ -1,24 +1,26 @@
+using System.Text.Json.Serialization;
+
 namespace DotNetRAG.Api.Contracts.Responses;
 
 public sealed record ConfigResponse(
-    ConfigResponse.RagConfig Rag,
-    ConfigResponse.OpenAiConfig OpenAi,
-    ConfigResponse.AnthropicConfig Anthropic)
+    [property: JsonPropertyName("rag")] ConfigResponse.RagConfig Rag,
+    [property: JsonPropertyName("openAi")] ConfigResponse.OpenAiConfig OpenAi,
+    [property: JsonPropertyName("anthropic")] ConfigResponse.AnthropicConfig Anthropic)
 {
     public sealed record RagConfig(
-        string CorpusDirectory,
-        int ChunkSize,
-        int ChunkOverlap,
-        int DefaultTopK,
-        double MinSimilarityScore,
-        string[] FileExtensions);
+        [property: JsonPropertyName("corpusDirectory")] string CorpusDirectory,
+        [property: JsonPropertyName("chunkSize")] int ChunkSize,
+        [property: JsonPropertyName("chunkOverlap")] int ChunkOverlap,
+        [property: JsonPropertyName("defaultTopK")] int DefaultTopK,
+        [property: JsonPropertyName("minSimilarityScore")] double MinSimilarityScore,
+        [property: JsonPropertyName("fileExtensions")] string[] FileExtensions);
 
     public sealed record OpenAiConfig(
-        string EmbeddingModel,
-        int EmbeddingDimensions,
-        int MaxBatchSize);
+        [property: JsonPropertyName("embeddingModel")] string EmbeddingModel,
+        [property: JsonPropertyName("embeddingDimensions")] int EmbeddingDimensions,
+        [property: JsonPropertyName("maxBatchSize")] int MaxBatchSize);
 
     public sealed record AnthropicConfig(
-        string Model,
-        int MaxTokens);
+        [property: JsonPropertyName("model")] string Model,
+        [property: JsonPropertyName("maxTokens")] int MaxTokens);
 }

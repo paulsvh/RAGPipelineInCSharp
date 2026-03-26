@@ -1,6 +1,8 @@
+using System.Text.Json.Serialization;
+
 namespace DotNetRAG.Api.Contracts.Responses;
 
 public sealed record HealthResponse(
-    string Status,
-    int ChunksStored,
-    DateTimeOffset Timestamp);
+    [property: JsonPropertyName("status")] string Status,
+    [property: JsonPropertyName("chunksStored")] int ChunksStored,
+    [property: JsonPropertyName("timestamp")] DateTimeOffset Timestamp);
