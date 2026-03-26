@@ -19,7 +19,7 @@ public sealed class RagSettings
     public int DefaultTopK { get; set; } = 5;
 
     [Range(0.0, 1.0)]
-    public double MinSimilarityScore { get; set; } = 0.3;
+    public double MinSimilarityScore { get; set; } = 0.05;
 
     public string[] FileExtensions { get; set; } = [".md", ".txt"];
 }
