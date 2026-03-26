@@ -1,0 +1,5 @@
+{
+  "name": "Space Exploration",
+  "description": "Articles about the solar system, space missions, and astronomy. Tests RAG with factual/scientific content, dates, measurements, and cross-referencing between missions and celestial bodies.",
+  "documents": 6
+}

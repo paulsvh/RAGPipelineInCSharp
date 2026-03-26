@@ -1,0 +1,5 @@
+{
+  "name": "Cooking Recipes",
+  "description": "A collection of recipes, cooking techniques, and kitchen guides. Tests RAG with structured content like ingredient lists, step-by-step instructions, and cooking times.",
+  "documents": 6
+}
