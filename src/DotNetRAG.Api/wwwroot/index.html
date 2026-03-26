@@ -289,7 +289,7 @@ footer a:hover { color: var(--accent); }
               placeholder="Ask a question about the loaded corpus…"
               onkeydown="if(event.key==='Enter')submitQuery()">
           </div>
-          <div class="topk-control">
+          <div class="topk-control" title="Top-K: the number of document chunks retrieved for context. Higher values give the LLM more context but may include less relevant results. Lower values are more precise but may miss relevant information.">
             <span class="topk-label">top-k</span>
             <input type="range" class="topk-slider" id="topkSlider" min="1" max="20" value="5"
               oninput="document.getElementById('topkValue').textContent=this.value">
@@ -345,9 +345,9 @@ const corpusSuggestions = {
   ],
   'cooking-recipes': [
     'How do I make a proper carbonara?',
-    'What temperature should I bake sourdough bread?',
-    'What are the different types of knife cuts?',
-    'Which wood chips are best for smoking brisket?'
+    'What temperature should I bake bread at?',
+    'How do I make chocolate mousse?',
+    'What spices pair well with grilling?'
   ],
   'space-exploration': [
     'What has the James Webb telescope discovered?',
