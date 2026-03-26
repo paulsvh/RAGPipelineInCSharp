@@ -10,6 +10,8 @@ builder.Services.AddRagPipeline(builder.Configuration);
 var app = builder.Build();
 
 app.UseExceptionHandler();
+app.UseDefaultFiles();
+app.UseStaticFiles();
 
 if (app.Environment.IsDevelopment())
 {

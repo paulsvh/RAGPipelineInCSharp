@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DotNetRAG — Pipeline Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root {
+  --bg-primary: #0a0a0c;
+  --bg-secondary: #111115;
+  --bg-tertiary: #18181e;
+  --bg-elevated: #1e1e26;
+  --border: #2a2a35;
+  --border-active: #3d3d4d;
+  --text-primary: #e8e8ed;
+  --text-secondary: #8888a0;
+  --text-tertiary: #5a5a70;
+  --accent: #22d68a;
+  --accent-dim: #1a9e68;
+  --accent-glow: rgba(34, 214, 138, 0.12);
+  --accent-glow-strong: rgba(34, 214, 138, 0.25);
+  --cite: #f0a83a;
+  --cite-glow: rgba(240, 168, 58, 0.15);
+  --error: #e85454;
+  --error-glow: rgba(232, 84, 84, 0.12);
+  --score-high: #22d68a;
+  --score-mid: #f0a83a;
+  --score-low: #e85454;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', monospace;
+  --font-sans: 'DM Sans', -apple-system, sans-serif;
+  --radius: 6px;
+  --transition: 180ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+html { font-size: 15px; }
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  line-height: 1.6;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-active); }
+
+/* ── Header ── */
+header {
+  border-bottom: 1px solid var(--border);
+  padding: 0 2rem;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-secondary);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(12px);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.logo-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dim) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--bg-primary);
+}
+
+.logo h1 {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.logo h1 span {
+  color: var(--text-tertiary);
+  font-weight: 400;
+}
+
+.health-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.73rem;
+  color: var(--text-secondary);
+  padding: 0.3rem 0.7rem;
+  border-radius: 100px;
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  transition: all var(--transition);
+}
+
+.health-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+  transition: background var(--transition);
+}
+
+.health-badge.connected .health-dot {
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent-glow-strong);
+}
+
+.health-badge.error .health-dot {
+  background: var(--error);
+  box-shadow: 0 0 6px var(--error-glow);
+}
+
+/* ── Main ── */
+main {
+  flex: 1;
+  max-width: 960px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 2rem 2rem 4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ── Panels ── */
+.panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-tertiary);
+}
+
+.panel-title {
+  font-family: var(--font-mono);
+  font-size: 0.73rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+
+.panel-body {
+  padding: 1.25rem;
+}
+
+/* ── Ingest Panel ── */
+.ingest-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.ingest-stats {
+  display: flex;
+  gap: 1.5rem;
+  flex: 1;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: all 300ms ease;
+}
+
+.ingest-stats.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.stat-value {
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.stat-label {
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ── Buttons ── */
+.btn {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 0.55rem 1.2rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.btn:hover {
+  border-color: var(--border-active);
+  background: var(--bg-tertiary);
+}
+
+.btn:active { transform: scale(0.97); }
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg-primary);
+  font-weight: 600;
+}
+
+.btn-primary:hover {
+  background: var(--accent-dim);
+  border-color: var(--accent-dim);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn .spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  display: none;
+}
+
+.btn.loading .spinner { display: block; }
+.btn.loading .btn-text { opacity: 0.6; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Query Input ── */
+.query-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.input-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.query-input-wrap {
+  flex: 1;
+  position: relative;
+}
+
+.query-input {
+  width: 100%;
+  padding: 0.65rem 1rem;
+  font-family: var(--font-sans);
+  font-size: 0.93rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color var(--transition);
+}
+
+.query-input::placeholder { color: var(--text-tertiary); }
+.query-input:focus { border-color: var(--accent-dim); }
+
+.topk-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-primary);
+  min-width: 130px;
+}
+
+.topk-label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.topk-slider {
+  width: 50px;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+
+.topk-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.topk-value {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  min-width: 1.2em;
+  text-align: right;
+}
+
+/* ── Response ── */
+.response-area {
+  display: none;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 0.5rem;
+  animation: fadeUp 300ms ease;
+}
+
+.response-area.visible {
+  display: flex;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.answer-block {
+  padding: 1rem 1.25rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.93rem;
+  line-height: 1.75;
+  color: var(--text-primary);
+}
+
+.answer-block .citation {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2em;
+  padding: 0.1em 0.45em;
+  background: var(--cite-glow);
+  border: 1px solid rgba(240, 168, 58, 0.3);
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--cite);
+  cursor: default;
+  vertical-align: baseline;
+  transition: background var(--transition);
+}
+
+.answer-block .citation:hover {
+  background: rgba(240, 168, 58, 0.25);
+}
+
+.meta-row {
+  display: flex;
+  gap: 1.5rem;
+  padding: 0.6rem 0;
+}
+
+.meta-item {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+}
+
+.meta-item strong {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* ── Source Chunks ── */
+.sources-header {
+  font-family: var(--font-mono);
+  font-size: 0.73rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.source-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.source-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-primary);
+  overflow: hidden;
+  transition: border-color var(--transition);
+}
+
+.source-card:hover {
+  border-color: var(--border-active);
+}
+
+.source-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.source-card-header:hover { background: var(--bg-tertiary); }
+
+.source-score {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  min-width: 3.5em;
+  text-align: right;
+}
+
+.source-file {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.source-id {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-tertiary);
+  padding: 0.15em 0.4em;
+  background: var(--bg-elevated);
+  border-radius: 3px;
+}
+
+.source-chevron {
+  color: var(--text-tertiary);
+  font-size: 0.7rem;
+  transition: transform var(--transition);
+}
+
+.source-card.open .source-chevron {
+  transform: rotate(90deg);
+}
+
+.source-card-body {
+  display: none;
+  padding: 0 1rem 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.source-card.open .source-card-body {
+  display: block;
+}
+
+.source-preview {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  padding-top: 0.75rem;
+  white-space: pre-wrap;
+}
+
+/* ── Error ── */
+.error-msg {
+  padding: 0.75rem 1rem;
+  background: var(--error-glow);
+  border: 1px solid rgba(232, 84, 84, 0.3);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--error);
+}
+
+/* ── Empty State ── */
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--text-tertiary);
+  font-size: 0.85rem;
+}
+
+.empty-state kbd {
+  display: inline-block;
+  padding: 0.15em 0.5em;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+}
+
+/* ── Footer ── */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 1rem 2rem;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-tertiary);
+  background: var(--bg-secondary);
+}
+
+footer a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color var(--transition);
+}
+footer a:hover { color: var(--accent); }
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  main { padding: 1rem; }
+  header { padding: 0 1rem; }
+  .input-row { flex-direction: column; }
+  .topk-control { min-width: unset; justify-content: space-between; padding: 0.5rem 0.75rem; }
+  .meta-row { flex-wrap: wrap; gap: 0.75rem; }
+  .ingest-row { flex-direction: column; align-items: stretch; }
+  .ingest-stats { flex-wrap: wrap; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">R</div>
+    <h1>DotNetRAG <span>/ console</span></h1>
+  </div>
+  <div class="health-badge" id="healthBadge">
+    <div class="health-dot"></div>
+    <span id="healthText">connecting…</span>
+  </div>
+</header>
+
+<main>
+  <!-- Ingest Panel -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Ingestion</span>
+    </div>
+    <div class="panel-body">
+      <div class="ingest-row">
+        <button class="btn" id="ingestBtn" onclick="ingestDocuments()">
+          <span class="spinner"></span>
+          <span class="btn-text">Ingest Corpus</span>
+        </button>
+        <div class="ingest-stats" id="ingestStats">
+          <div class="stat">
+            <span class="stat-value" id="statDocs">—</span>
+            <span class="stat-label">Documents</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value" id="statChunks">—</span>
+            <span class="stat-label">Chunks</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value" id="statDuration">—</span>
+            <span class="stat-label">Duration</span>
+          </div>
+        </div>
+      </div>
+      <div id="ingestError"></div>
+    </div>
+  </div>
+
+  <!-- Query Panel -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Query</span>
+    </div>
+    <div class="panel-body">
+      <div class="query-form">
+        <div class="input-row">
+          <div class="query-input-wrap">
+            <input type="text" class="query-input" id="queryInput"
+              placeholder="Ask a question about the corpus…"
+              onkeydown="if(event.key==='Enter')submitQuery()">
+          </div>
+          <div class="topk-control">
+            <span class="topk-label">top-k</span>
+            <input type="range" class="topk-slider" id="topkSlider" min="1" max="20" value="5"
+              oninput="document.getElementById('topkValue').textContent=this.value">
+            <span class="topk-value" id="topkValue">5</span>
+          </div>
+          <button class="btn btn-primary" id="queryBtn" onclick="submitQuery()">
+            <span class="spinner"></span>
+            <span class="btn-text">Run</span>
+          </button>
+        </div>
+
+        <div id="queryError"></div>
+
+        <div class="response-area" id="responseArea">
+          <div class="answer-block" id="answerBlock"></div>
+
+          <div class="meta-row" id="metaRow"></div>
+
+          <div>
+            <div class="sources-header">Source Chunks</div>
+            <div class="source-cards" id="sourceCards"></div>
+          </div>
+        </div>
+
+        <div class="empty-state" id="emptyState">
+          Ingest documents first, then ask a question. <br>
+          Try: <kbd>What monitoring is available for Aurora Analytics?</kbd>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  DotNetRAG — RAG pipeline in C#/.NET &nbsp;·&nbsp;
+  <a href="https://github.com/paulsvh/RAGPipelineInCSharp" target="_blank">GitHub</a>
+</footer>
+
+<script>
+const $ = id => document.getElementById(id);
+
+// ── Health Check ──
+async function checkHealth() {
+  const badge = $('healthBadge');
+  const text = $('healthText');
+  try {
+    const res = await fetch('/api/diagnostics/health');
+    const data = await res.json();
+    badge.className = 'health-badge connected';
+    text.textContent = `${data.chunksStored} chunks`;
+  } catch {
+    badge.className = 'health-badge error';
+    text.textContent = 'offline';
+  }
+}
+
+// ── Ingest ──
+async function ingestDocuments() {
+  const btn = $('ingestBtn');
+  const stats = $('ingestStats');
+  const errEl = $('ingestError');
+  errEl.innerHTML = '';
+
+  btn.classList.add('loading');
+  btn.disabled = true;
+  stats.classList.remove('visible');
+
+  try {
+    const res = await fetch('/api/ingest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}'
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    $('statDocs').textContent = data.documentsLoaded;
+    $('statChunks').textContent = data.chunksCreated;
+
+    const ms = parseDuration(data.duration);
+    $('statDuration').textContent = ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
+
+    stats.classList.add('visible');
+    checkHealth();
+  } catch (e) {
+    errEl.innerHTML = `<div class="error-msg">${esc(e.message)}</div>`;
+  } finally {
+    btn.classList.remove('loading');
+    btn.disabled = false;
+  }
+}
+
+function parseDuration(d) {
+  if (typeof d === 'string') {
+    // "00:00:01.234" or "0.00:00:01.2340000"
+    const parts = d.split(':');
+    const secParts = parts[parts.length - 1].split('.');
+    const h = parts.length >= 3 ? parseInt(parts[parts.length - 3]) || 0 : 0;
+    const m = parts.length >= 2 ? parseInt(parts[parts.length - 2]) || 0 : 0;
+    const s = parseInt(secParts[0]) || 0;
+    const frac = secParts[1] ? parseInt(secParts[1].substring(0, 3)) : 0;
+    return ((h * 3600 + m * 60 + s) * 1000) + frac;
+  }
+  return 0;
+}
+
+// ── Query ──
+async function submitQuery() {
+  const input = $('queryInput');
+  const question = input.value.trim();
+  if (!question) { input.focus(); return; }
+
+  const btn = $('queryBtn');
+  const errEl = $('queryError');
+  const responseArea = $('responseArea');
+  const emptyState = $('emptyState');
+
+  errEl.innerHTML = '';
+  btn.classList.add('loading');
+  btn.disabled = true;
+  responseArea.classList.remove('visible');
+
+  try {
+    const topK = parseInt($('topkSlider').value);
+    const res = await fetch('/api/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, topK })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    renderResponse(data);
+    emptyState.style.display = 'none';
+    responseArea.classList.add('visible');
+  } catch (e) {
+    errEl.innerHTML = `<div class="error-msg">${esc(e.message)}</div>`;
+  } finally {
+    btn.classList.remove('loading');
+    btn.disabled = false;
+  }
+}
+
+function renderResponse(data) {
+  // Answer with highlighted citations
+  const answerHtml = esc(data.answer).replace(
+    /\[cite:([a-f0-9]{12})\]/g,
+    '<span class="citation" title="Chunk $1">$1</span>'
+  );
+  $('answerBlock').innerHTML = answerHtml;
+
+  // Meta row
+  $('metaRow').innerHTML = `
+    <span class="meta-item"><strong>Model:</strong> ${esc(data.modelUsed)}</span>
+    <span class="meta-item"><strong>Prompt:</strong> ${data.usage.promptTokens} tokens</span>
+    <span class="meta-item"><strong>Completion:</strong> ${data.usage.completionTokens} tokens</span>
+    <span class="meta-item"><strong>Chunks:</strong> ${data.usage.chunksRetrieved} retrieved</span>
+  `;
+
+  // Source cards
+  const cards = $('sourceCards');
+  cards.innerHTML = '';
+
+  if (!data.sourceChunks || data.sourceChunks.length === 0) {
+    cards.innerHTML = '<div class="empty-state" style="padding:1rem">No source chunks returned.</div>';
+    return;
+  }
+
+  data.sourceChunks.forEach(chunk => {
+    const score = chunk.similarityScore;
+    const scoreColor = score >= 0.75 ? 'var(--score-high)' : score >= 0.5 ? 'var(--score-mid)' : 'var(--score-low)';
+    const card = document.createElement('div');
+    card.className = 'source-card';
+    card.innerHTML = `
+      <div class="source-card-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="source-score" style="color:${scoreColor}">${(score * 100).toFixed(1)}%</span>
+        <span class="source-file">${esc(chunk.sourceFile)}</span>
+        <span class="source-id">${esc(chunk.chunkId)}</span>
+        <span class="source-chevron">▶</span>
+      </div>
+      <div class="source-card-body">
+        <div class="source-preview">${esc(chunk.textPreview)}</div>
+      </div>
+    `;
+    cards.appendChild(card);
+  });
+}
+
+function esc(s) {
+  if (!s) return '';
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// Init
+checkHealth();
+</script>
+</body>
+</html>
