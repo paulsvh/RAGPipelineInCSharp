@@ -18,10 +18,6 @@ public static class ServiceCollectionExtensions
             .Validate(s => s.ChunkOverlap < s.ChunkSize,
                 "ChunkOverlap must be less than ChunkSize to avoid infinite chunking loops.");
 
-        services.AddOptionsWithValidateOnStart<OpenAiSettings>()
-            .BindConfiguration(OpenAiSettings.SectionName)
-            .ValidateDataAnnotations();
-
         services.AddOptionsWithValidateOnStart<AnthropicSettings>()
             .BindConfiguration(AnthropicSettings.SectionName)
             .ValidateDataAnnotations();
@@ -29,14 +25,12 @@ public static class ServiceCollectionExtensions
         // Stateless components
         services.AddSingleton<IDocumentLoader, PlainTextDocumentLoader>();
         services.AddSingleton<IChunker, OverlappingChunker>();
+        services.AddSingleton<IEmbedder, LocalHashingEmbedder>();
 
         // In-memory vector store (singleton — holds state)
         services.AddSingleton<IVectorStore, InMemoryVectorStore>();
 
-        // HTTP-backed services with resilience
-        services.AddHttpClient<IEmbedder, OpenAiEmbedder>()
-            .AddStandardResilienceHandler();
-
+        // LLM client
         services.AddHttpClient<ILanguageModelClient, AnthropicLanguageModelClient>()
             .AddStandardResilienceHandler();
 

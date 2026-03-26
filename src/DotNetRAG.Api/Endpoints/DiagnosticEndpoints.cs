@@ -44,19 +44,15 @@ public static class DiagnosticEndpoints
 
     private static IResult HandleConfig(
         IOptions<RagSettings> ragSettings,
-        IOptions<OpenAiSettings> openAiSettings,
         IOptions<AnthropicSettings> anthropicSettings)
     {
         var rag = ragSettings.Value;
-        var openAi = openAiSettings.Value;
         var anthropic = anthropicSettings.Value;
 
         return Results.Ok(new ConfigResponse(
             Rag: new ConfigResponse.RagConfig(
                 rag.CorpusDirectory, rag.ChunkSize, rag.ChunkOverlap,
                 rag.DefaultTopK, rag.MinSimilarityScore, rag.FileExtensions),
-            OpenAi: new ConfigResponse.OpenAiConfig(
-                openAi.EmbeddingModel, openAi.EmbeddingDimensions, openAi.MaxBatchSize),
             Anthropic: new ConfigResponse.AnthropicConfig(
                 anthropic.Model, anthropic.MaxTokens)));
     }
