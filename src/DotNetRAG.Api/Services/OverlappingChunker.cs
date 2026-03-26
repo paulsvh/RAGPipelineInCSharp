@@ -17,20 +17,28 @@ public sealed class OverlappingChunker(IOptions<RagSettings> settings) : IChunke
         if (string.IsNullOrWhiteSpace(content))
             return [];
 
+        // Extract document title and track section headings for context injection
+        var docTitle = ExtractTitle(content);
         var paragraphs = SplitIntoParagraphs(content);
         var chunks = new List<DocumentChunk>();
         var currentText = new StringBuilder();
+        var currentSection = "";
         int chunkIndex = 0;
         int charOffset = 0;
 
         foreach (var paragraph in paragraphs)
         {
+            // Track the nearest section heading
+            if (paragraph.StartsWith("## "))
+                currentSection = paragraph;
+
             if (currentText.Length > 0 && currentText.Length + paragraph.Length + 2 > _chunkSize)
             {
                 var text = currentText.ToString().Trim();
                 if (text.Length > 0)
                 {
-                    chunks.Add(CreateChunk(text, sourcePath, chunkIndex, charOffset));
+                    var contextualText = PrependContext(text, docTitle, currentSection);
+                    chunks.Add(CreateChunk(contextualText, sourcePath, chunkIndex, charOffset));
                     chunkIndex++;
 
                     // Calculate overlap: take the last _chunkOverlap characters
@@ -52,7 +60,8 @@ public sealed class OverlappingChunker(IOptions<RagSettings> settings) : IChunke
             while (currentText.Length > _chunkSize)
             {
                 var text = currentText.ToString()[.._chunkSize].Trim();
-                chunks.Add(CreateChunk(text, sourcePath, chunkIndex, charOffset));
+                var contextualText = PrependContext(text, docTitle, currentSection);
+                chunks.Add(CreateChunk(contextualText, sourcePath, chunkIndex, charOffset));
                 chunkIndex++;
 
                 var overlapStart = Math.Max(0, _chunkSize - _chunkOverlap);
@@ -68,10 +77,40 @@ public sealed class OverlappingChunker(IOptions<RagSettings> settings) : IChunke
         var finalText = currentText.ToString().Trim();
         if (finalText.Length > 0)
         {
-            chunks.Add(CreateChunk(finalText, sourcePath, chunkIndex, charOffset));
+            var contextualText = PrependContext(finalText, docTitle, currentSection);
+            chunks.Add(CreateChunk(contextualText, sourcePath, chunkIndex, charOffset));
         }
 
         return chunks;
+    }
+
+    private static string ExtractTitle(string content)
+    {
+        foreach (var line in content.Split('\n'))
+        {
+            var trimmed = line.Trim();
+            if (trimmed.StartsWith("# ") && !trimmed.StartsWith("## "))
+                return trimmed[2..].Trim();
+        }
+        return "";
+    }
+
+    private static string PrependContext(string text, string docTitle, string section)
+    {
+        // Don't prepend if the chunk already starts with a heading
+        if (text.StartsWith('#'))
+            return text;
+
+        var prefix = new StringBuilder();
+        if (!string.IsNullOrEmpty(docTitle))
+            prefix.Append($"[{docTitle}]");
+        if (!string.IsNullOrEmpty(section) && !text.Contains(section))
+        {
+            if (prefix.Length > 0) prefix.Append(" > ");
+            prefix.Append($"[{section.TrimStart('#', ' ')}]");
+        }
+
+        return prefix.Length > 0 ? $"{prefix}\n{text}" : text;
     }
 
     private static List<string> SplitIntoParagraphs(string content)
