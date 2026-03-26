@@ -70,7 +70,7 @@ Every component is behind an interface, making it straightforward to swap implem
 ```bash
 # Clone the repository
 git clone https://github.com/paulsvh/RAGPipelineInCSharp.git
-cd DotNetRAG
+cd RAGPipelineInCSharp
 
 # Set up API keys using .NET User Secrets (never stored in source control)
 cd src/DotNetRAG.Api
@@ -84,9 +84,21 @@ dotnet build
 dotnet run --project src/DotNetRAG.Api
 ```
 
-The API will start at `http://localhost:5292`. Swagger UI is available at `/swagger` in development mode.
+The API will start at `http://localhost:5292`.
 
-### Usage
+### Testing Console
+
+Open `http://localhost:5292` in a browser to use the built-in testing console — no curl required. The console provides:
+
+- **Health indicator** — live connection status and chunk count
+- **One-click ingestion** — ingest the demo corpus with a single button press
+- **Interactive query UI** — ask questions with an adjustable top-k slider, see answers with highlighted citations and collapsible source chunk cards with similarity scores
+
+Swagger UI is also available at `/swagger` for raw API exploration.
+
+### Usage (curl)
+
+Alternatively, use curl to interact with the API directly:
 
 **1. Ingest the demo corpus:**
 
@@ -175,7 +187,8 @@ src/DotNetRAG.Api/
 ├── Services/           All implementations + pipeline orchestrators
 ├── Endpoints/          Minimal API endpoint definitions
 ├── Middleware/          Global exception handling (RFC 9457 ProblemDetails)
-└── Extensions/         DI registration with options validation
+├── Extensions/         DI registration with options validation
+└── wwwroot/            Built-in testing console (single-page HTML)
 ```
 
 ## Configuration
